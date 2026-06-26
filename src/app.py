@@ -12,7 +12,7 @@ load_dotenv()
 
 MODEL = os.getenv("MODEL", "cohere/north-mini-code:free")
 URL = os.getenv("OPENROUTER_URL", "https://openrouter.ai/api/v1/chat/completions")
-DOCS_DIR = os.getenv("DOCS_DIR", "docs")
+DOCS_DIR = os.getenv("DOCS_DIR", "knowledge_base")
 PORT = int(os.getenv("PORT", "5000"))
 DEBUG_MODE = os.getenv("DEBUG", "True").lower() in ("1", "true", "yes")
 MAX_DOCS = 3
