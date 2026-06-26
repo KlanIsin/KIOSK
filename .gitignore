@@ -1,0 +1,23 @@
+# Python environment
+myenv/
+
+# Environment variables
+.env
+api.txt
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE / editor files
+.vscode/
+.idea/
+
+# Logs and local data
+chat_log.json
+
+# System files
+.DS_Store
+Thumbs.db

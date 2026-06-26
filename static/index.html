@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>School AI Helpdesk</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f5f7fb; color: #111; }
+    .app-shell { max-width: 760px; margin: 0 auto; padding: 20px; }
+    h1 { margin-bottom: 0.2em; }
+    .card { background: white; border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.08); padding: 24px; }
+    .messages { min-height: 320px; border: 1px solid #e3e7ee; border-radius: 12px; padding: 16px; margin-bottom: 16px; overflow-y: auto; background: #fcfdff; }
+    .message { margin-bottom: 14px; }
+    .message.user { text-align: right; }
+    .message .bubble { display: inline-block; padding: 12px 16px; border-radius: 18px; max-width: 80%; line-height: 1.5; }
+    .message.user .bubble { background: #214ad8; color: white; }
+    .message.bot .bubble { background: #eef3ff; color: #111; }
+    .hint { color: #6c757d; font-size: 0.95rem; margin-bottom: 12px; }
+    .controls { display: flex; gap: 10px; }
+    input[type="text"] { flex: 1; border-radius: 14px; border: 1px solid #d2d7e0; padding: 12px 14px; font-size: 1rem; }
+    button { border: none; border-radius: 14px; padding: 12px 18px; background: #214ad8; color: white; cursor: pointer; font-size: 1rem; }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    .footer { margin-top: 20px; color: #57606f; font-size: 0.92rem; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="card">
+      <h1>School AI Helpdesk</h1>
+      <p class="hint">Ask questions about your school, policies, schedules, or student services.</p>
+      <div id="messages" class="messages"></div>
+      <div class="controls">
+        <input id="prompt" type="text" placeholder="Type a question for the helpdesk..." />
+        <button id="sendButton">Send</button>
+      </div>
+      <div id="status" class="footer"></div>
+    </div>
+  </div>
+
+  <script>
+    const messagesEl = document.getElementById('messages');
+    const promptEl = document.getElementById('prompt');
+    const sendButton = document.getElementById('sendButton');
+    const statusEl = document.getElementById('status');
+
+    const appendMessage = (role, text) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'message ' + (role === 'user' ? 'user' : 'bot');
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = text;
+      wrapper.appendChild(bubble);
+      messagesEl.appendChild(wrapper);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    };
+
+    const sendMessage = async () => {
+      const message = promptEl.value.trim();
+      if (!message) return;
+
+      appendMessage('user', message);
+      promptEl.value = '';
+      sendButton.disabled = true;
+      statusEl.textContent = 'Contacting the helpdesk...';
+
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message }),
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+          appendMessage('bot', 'Error: ' + (result.error || 'Unable to reach server.'));
+          statusEl.textContent = 'Try again or check the backend.';
+        } else {
+          appendMessage('bot', result.reply);
+          statusEl.textContent = result.source_documents.length
+            ? 'Used context: ' + result.source_documents.join(', ')
+            : 'No reference documents matched your question.';
+        }
+      } catch (error) {
+        appendMessage('bot', 'Network error: ' + error.message);
+        statusEl.textContent = 'Unable to connect to the helpdesk.';
+      } finally {
+        sendButton.disabled = false;
+      }
+    };
+
+    sendButton.addEventListener('click', sendMessage);
+    promptEl.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        sendMessage();
+      }
+    });
+
+    promptEl.focus();
+  </script>
+</body>
+</html>
