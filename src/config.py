@@ -38,8 +38,12 @@ EMBEDDING_MODEL = os.getenv(
     "EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
 )
 
-# System prompts used as the assistant's instruction (configurable)
-SYSTEM_PROMPTS = {
+# System prompts used as the assistant's instruction (configurable).
+# By default we load `system_prompts.json` from the repository root if present,
+# otherwise fall back to these built-in defaults.
+PROMPTS_FILE = ROOT_DIR / "system_prompts.json"
+
+DEFAULT_SYSTEM_PROMPTS = {
     "en": (
         "You are a helpful school helpdesk assistant. "
         "Answer in English. "
@@ -53,3 +57,19 @@ SYSTEM_PROMPTS = {
         "Do not provide any HTML or code wrapper; return only Markdown text."
     ),
 }
+
+try:
+    if PROMPTS_FILE.is_file():
+        import json
+
+        with PROMPTS_FILE.open("r", encoding="utf-8") as f:
+            loaded = json.load(f)
+        # Expect a dict mapping language keys to prompt strings
+        if isinstance(loaded, dict) and loaded:
+            SYSTEM_PROMPTS = loaded
+        else:
+            SYSTEM_PROMPTS = DEFAULT_SYSTEM_PROMPTS
+    else:
+        SYSTEM_PROMPTS = DEFAULT_SYSTEM_PROMPTS
+except Exception:
+    SYSTEM_PROMPTS = DEFAULT_SYSTEM_PROMPTS
