@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DLKP AI Assistant</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <header class="app-header">
+            <img src="hkma.png" alt="HKMA Logo" class="logo">
+            <h1 class="app-title" id="app-title">DLKP AI Assistant</h1>
+        </header>
+
+        <main class="chat-area">
+            <div class="chat-bubble bot">
+                <div class="bubble-meta">DLKP, <span id="welcome-time">--:--</span></div>
+                <div class="bubble-text" id="welcome-text">Welcome to David Li Kwok Po College! What may I help you with?</div>
+            </div>
+        </main>
+
+        <footer class="app-footer">
+            
+            <div class="quick-actions">
+                <button class="action-btn" id="btn-events" type="button">School events</button>
+                <button class="action-btn" id="btn-timetables" type="button">Timetables</button>
+            </div>
+
+            <div class="input-row">
+                <button type="button" id="lang-trigger" class="lang-btn" aria-label="Switch Language">中文</button>
+                <input type="text" id="chat-input" class="text-input" placeholder="Ask DLKP..." autocomplete="off">
+                <button type="button" id="send-trigger" class="send-btn" aria-label="Send message">Send</button>
+            </div>
+
+            <div class="mic-container">
+                <button class="mic-btn" id="mic-trigger" aria-label="Press and hold to speak" type="button">
+                    <img src="mic.png" alt="Microphone" class="mic-icon">
+                </button>
+            </div>
+            
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const timeSpan = document.getElementById('welcome-time');
+            const micBtn = document.getElementById('mic-trigger');
+            const chatInput = document.getElementById('chat-input');
+            const langBtn = document.getElementById('lang-trigger');
+            const appTitle = document.getElementById('app-title');
+            const welcomeText = document.getElementById('welcome-text');
+            const btnEvents = document.getElementById('btn-events');
+            const btnTimetables = document.getElementById('btn-timetables');
+            const sendBtn = document.getElementById('send-trigger');
+
+            // 1. Dynamic Local Time Generation
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            timeSpan.textContent = `${hours}:${minutes}`;
+
+            // 2. Language Matrix Configurations
+            let currentLang = 'en';
+            const localeData = {
+                en: {
+                    title: "DLKP AI Assistant",
+                    welcome: "Welcome to David Li Kwok Po College! What may I help you with?",
+                    events: "School events",
+                    timetables: "Timetables",
+                    placeholder: "Ask DLKP...",
+                    listening: "Listening...",
+                    send: "Send",
+                    toggleLabel: "中文",
+                    speechLocale: "en-US"
+                },
+                zh: {
+                    title: "DLKP 智能助理",
+                    welcome: "歡迎來到香港管理專業協會李國寶中學！有甚麼我可以幫您？",
+                    events: "學校活動",
+                    timetables: "時間表",
+                    placeholder: "詢問 DLKP...",
+                    listening: "正在聆聽...",
+                    send: "發送",
+                    toggleLabel: "EN",
+                    speechLocale: "zh-HK"
+                }
+            };
+
+            // 3. Continuous Background Speech Setup
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            
+            if (!SpeechRecognition) {
+                console.warn("Web Speech API is not natively supported in this browser engine.");
+                micBtn.style.opacity = "0.4";
+                return;
+            }
+
+            const recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = localeData[currentLang].speechLocale;
+
+            let isHolding = false;
+            let hasStarted = false;
+
+            // Handle text conversion purely based on the physical holding state
+            recognition.onresult = (event) => {
+                if (!isHolding) return; 
+
+                let completeTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal || event.results[i][0].confidence > 0) {
+                        completeTranscript += event.results[i][0].transcript;
+                    }
+                }
+                if (completeTranscript.trim().length > 0) {
+                    chatInput.value = completeTranscript;
+                }
+            };
+
+            recognition.onend = () => {
+                if (hasStarted) {
+                    try { recognition.start(); } catch(e) {}
+                }
+            };
+
+            recognition.onerror = (event) => {
+                if (event.error === 'not-allowed') {
+                    hasStarted = false;
+                }
+            };
+
+            // Press and Hold Action Triggers
+            const startVoiceCapture = (e) => {
+                e.preventDefault();
+                isHolding = true;
+                chatInput.placeholder = localeData[currentLang].listening;
+                
+                if (!hasStarted) {
+                    hasStarted = true;
+                    try {
+                        recognition.start();
+                    } catch (err) {
+                        console.error("Speech initialization error:", err);
+                    }
+                }
+            };
+
+            const endVoiceCapture = (e) => {
+                e.preventDefault();
+                isHolding = false;
+                chatInput.placeholder = localeData[currentLang].placeholder;
+            };
+
+            // Hot-swapping localization runtime loop
+            langBtn.addEventListener('click', () => {
+                currentLang = (currentLang === 'en') ? 'zh' : 'en';
+                const dataset = localeData[currentLang];
+
+                // Update UI elements
+                langBtn.textContent = dataset.toggleLabel;
+                appTitle.textContent = dataset.title;
+                welcomeText.textContent = dataset.welcome;
+                btnEvents.textContent = dataset.events;
+                btnTimetables.textContent = dataset.timetables;
+                sendBtn.textContent = dataset.send;
+                chatInput.placeholder = isHolding ? dataset.listening : dataset.placeholder;
+
+                // Hot-swap microphone pipeline architecture locale
+                recognition.lang = dataset.speechLocale;
+                if (hasStarted) {
+                    // Soft reboot stream iteration instance to inherit configuration adjustments cleanly
+                    recognition.stop();
+                }
+            });
+
+            // Mouse Bindings
+            micBtn.addEventListener('mousedown', startVoiceCapture);
+            micBtn.addEventListener('mouseup', endVoiceCapture);
+            micBtn.addEventListener('mouseleave', endVoiceCapture);
+
+            // Touch Bindings
+            micBtn.addEventListener('touchstart', startVoiceCapture, { passive: false });
+            micBtn.addEventListener('touchend', endVoiceCapture, { passive: false });
+        });
+    </script>
+</body>
+</html>
