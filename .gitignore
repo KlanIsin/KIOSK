@@ -3,7 +3,6 @@ myenv/
 
 # Environment variables
 .env
-api.txt
 
 # Python cache files
 __pycache__/

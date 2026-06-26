@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -16,6 +16,14 @@
     .message.user .bubble { background: #214ad8; color: white; }
     .message.bot .bubble { background: #eef3ff; color: #111; }
     .hint { color: #6c757d; font-size: 0.95rem; margin-bottom: 12px; }
+    .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .toolbar label { font-size: 0.95rem; }
+    .toolbar select { padding: 8px 10px; border-radius: 10px; border: 1px solid #d2d7e0; }
+    .suggestions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+    .suggestion-button { background: #eef3ff; border: 1px solid #d2d7e0; border-radius: 14px; padding: 10px 14px; cursor: pointer; color: #111; }
+    .suggestion-button:hover { background: #dde7ff; }
+    .upload-section { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; }
+    .upload-section input[type="file"] { flex: 1; }
     .controls { display: flex; gap: 10px; }
     input[type="text"] { flex: 1; border-radius: 14px; border: 1px solid #d2d7e0; padding: 12px 14px; font-size: 1rem; }
     button { border: none; border-radius: 14px; padding: 12px 18px; background: #214ad8; color: white; cursor: pointer; font-size: 1rem; }
@@ -28,10 +36,22 @@
     <div class="card">
       <h1>School AI Helpdesk</h1>
       <p class="hint">Ask questions about your school, policies, schedules, or student services.</p>
+      <div class="toolbar">
+        <label for="languageSelect">Language:</label>
+        <select id="languageSelect">
+          <option value="en">English</option>
+          <option value="yue">Cantonese</option>
+        </select>
+      </div>
+      <div id="suggestions" class="suggestions"></div>
+      <div id="uploadSection" class="upload-section">
+        <input id="uploadFile" type="file" />
+        <button id="uploadButton" type="button">Upload Document</button>
+      </div>
       <div id="messages" class="messages"></div>
       <div class="controls">
         <input id="prompt" type="text" placeholder="Type a question for the helpdesk..." />
-        <button id="sendButton">Send</button>
+        <button id="sendButton" type="button">Send</button>
       </div>
       <div id="status" class="footer"></div>
     </div>
@@ -42,16 +62,125 @@
     const promptEl = document.getElementById('prompt');
     const sendButton = document.getElementById('sendButton');
     const statusEl = document.getElementById('status');
+    const suggestionsEl = document.getElementById('suggestions');
+    const languageEl = document.getElementById('languageSelect');
+    const uploadFileInput = document.getElementById('uploadFile');
+    const uploadButton = document.getElementById('uploadButton');
+
+    const escapeHtml = (unsafe) => {
+      return unsafe
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    };
+
+    const renderMarkdown = (markdown) => {
+      let html = escapeHtml(markdown);
+
+      // Headings
+      html = html.replace(/^######\s*(.*)$/gm, '<h6>$1</h6>');
+      html = html.replace(/^#####\s*(.*)$/gm, '<h5>$1</h5>');
+      html = html.replace(/^####\s*(.*)$/gm, '<h4>$1</h4>');
+      html = html.replace(/^###\s*(.*)$/gm, '<h3>$1</h3>');
+      html = html.replace(/^##\s*(.*)$/gm, '<h2>$1</h2>');
+      html = html.replace(/^#\s*(.*)$/gm, '<h1>$1</h1>');
+
+      // Bold and italics
+      html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+      html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+      // Tables
+      const lines = html.split('\n');
+      let inTable = false;
+      let tableHtml = [];
+      const parsed = [];
+
+      const flushTable = () => {
+        if (!inTable) return;
+        parsed.push('<table>');
+        parsed.push('<thead>');
+        parsed.push(tableHtml[0]);
+        parsed.push('</thead>');
+        if (tableHtml.length > 1) {
+          parsed.push('<tbody>');
+          for (let i = 1; i < tableHtml.length; i++) {
+            parsed.push(tableHtml[i]);
+          }
+          parsed.push('</tbody>');
+        }
+        parsed.push('</table>');
+        inTable = false;
+        tableHtml = [];
+      };
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (/^\|.*\|$/.test(line) && i + 1 < lines.length && /^\|[\s-\|:]+\|$/.test(lines[i + 1])) {
+          const row = line
+            .split('|')
+            .slice(1, -1)
+            .map(cell => `<th>${cell.trim()}</th>`)
+            .join('');
+          tableHtml.push(`<tr>${row}</tr>`);
+          inTable = true;
+          continue;
+        }
+        if (inTable && /^\|.*\|$/.test(line)) {
+          const row = line
+            .split('|')
+            .slice(1, -1)
+            .map(cell => `<td>${cell.trim()}</td>`)
+            .join('');
+          tableHtml.push(`<tr>${row}</tr>`);
+          continue;
+        }
+        if (inTable) {
+          flushTable();
+        }
+        if (/^\s*-\s+/.test(line) || /^\s*\*\s+/.test(line) || /^[›••]\s+/.test(line)) {
+          parsed.push(`<li>${line.replace(/^\s*[-\*›••]\s+/, '')}</li>`);
+          continue;
+        }
+        if (/^\s*$/.test(line)) {
+          parsed.push('');
+          continue;
+        }
+        parsed.push(`<p>${line}</p>`);
+      }
+      flushTable();
+
+      let finalHtml = parsed.join('');
+      finalHtml = finalHtml.replace(/(<li>.*?<\/li>)/g, '<ul>$1</ul>');
+      finalHtml = finalHtml.replace(/<\/ul><ul>/g, '');
+      finalHtml = finalHtml.replace(/<p><\/p>/g, '<br>');
+      return finalHtml;
+    };
+
+    const conversationHistory = [];
 
     const appendMessage = (role, text) => {
       const wrapper = document.createElement('div');
       wrapper.className = 'message ' + (role === 'user' ? 'user' : 'bot');
       const bubble = document.createElement('div');
       bubble.className = 'bubble';
-      bubble.textContent = text;
+      if (role === 'bot') {
+        bubble.innerHTML = renderMarkdown(text);
+      } else {
+        bubble.textContent = text;
+      }
       wrapper.appendChild(bubble);
       messagesEl.appendChild(wrapper);
       messagesEl.scrollTop = messagesEl.scrollHeight;
+    };
+
+    const addConversationEntry = (role, text) => {
+      conversationHistory.push({ role, content: text });
+      if (conversationHistory.length > 10) {
+        conversationHistory.splice(0, conversationHistory.length - 10);
+      }
     };
 
     const sendMessage = async () => {
@@ -59,6 +188,7 @@
       if (!message) return;
 
       appendMessage('user', message);
+      addConversationEntry('user', message);
       promptEl.value = '';
       sendButton.disabled = true;
       statusEl.textContent = 'Contacting the helpdesk...';
@@ -67,7 +197,11 @@
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message }),
+          body: JSON.stringify({
+            message,
+            language: languageEl.value,
+            conversation: conversationHistory,
+          }),
         });
 
         const result = await response.json();
@@ -88,6 +222,66 @@
       }
     };
 
+    const renderSuggestions = (items) => {
+      suggestionsEl.innerHTML = '';
+      items.forEach((item) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'suggestion-button';
+        button.textContent = item.text;
+        button.addEventListener('click', () => {
+          promptEl.value = item.text;
+          sendMessage();
+        });
+        suggestionsEl.appendChild(button);
+      });
+    };
+
+    const fetchSuggestions = async () => {
+      const language = languageEl.value;
+      try {
+        const response = await fetch(`/api/suggestions?language=${language}`);
+        const result = await response.json();
+        if (response.ok) {
+          renderSuggestions(result.suggestions);
+        }
+      } catch (error) {
+        console.warn('Failed to fetch suggestions', error);
+      }
+    };
+
+    const uploadFile = async () => {
+      const file = uploadFileInput.files[0];
+      if (!file) {
+        statusEl.textContent = 'Choose a file first.';
+        return;
+      }
+      uploadButton.disabled = true;
+      statusEl.textContent = 'Uploading file...';
+      const form = new FormData();
+      form.append('file', file);
+      try {
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: form,
+        });
+        const result = await response.json();
+        if (response.ok) {
+          statusEl.textContent = result.message;
+          uploadFileInput.value = '';
+          fetchSuggestions();
+        } else {
+          statusEl.textContent = result.error || 'Upload failed.';
+        }
+      } catch (error) {
+        statusEl.textContent = 'Upload error: ' + error.message;
+      } finally {
+        uploadButton.disabled = false;
+      }
+    };
+
+    languageEl.addEventListener('change', fetchSuggestions);
+    uploadButton.addEventListener('click', uploadFile);
     sendButton.addEventListener('click', sendMessage);
     promptEl.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
@@ -95,8 +289,7 @@
         sendMessage();
       }
     });
-
-    promptEl.focus();
+    fetchSuggestions();
   </script>
 </body>
 </html>
