@@ -3,7 +3,7 @@ from typing import Optional
 
 import requests
 
-from src.config import MODEL, OPENROUTER_URL
+from src.config import MODEL, OPENROUTER_URL, SYSTEM_PROMPTS, DEFAULT_LANGUAGE
 
 
 def get_api_key() -> str:
@@ -22,20 +22,8 @@ def query_openrouter(
     conversation: Optional[list[dict]] = None,
 ) -> str:
     api_key = get_api_key()
-    system_prompt = "You are a helpful school helpdesk assistant. "
-    if language == "yue":
-        system_prompt += (
-            "Answer in Cantonese using traditional Chinese characters. "
-            "Always format your answer in Markdown. Use headings, bold text, lists, tables, and line breaks as needed. "
-            "Do not provide any HTML or code wrapper; return only Markdown text."
-        )
-    else:
-        system_prompt += (
-            "Answer in English. "
-            "Always format your answer in Markdown. Use headings, bold text, lists, tables, and line breaks as needed. "
-            "Do not provide any HTML or code wrapper; return only Markdown text."
-        )
-
+    # Use configurable system prompts defined in src/config.py
+    system_prompt = SYSTEM_PROMPTS.get(language) or SYSTEM_PROMPTS.get(DEFAULT_LANGUAGE)
     messages = [{"role": "system", "content": system_prompt}]
     if context:
         messages.append({"role": "system", "content": context})
