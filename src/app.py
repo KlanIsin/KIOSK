@@ -1,6 +1,10 @@
-﻿from pathlib import Path
+import logging
+
+from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
+
+logger = logging.getLogger(__name__)
 
 from src.config import (
     DEFAULT_LANGUAGE,
@@ -10,9 +14,10 @@ from src.config import (
     PORT,
     SUGGESTED_QUESTIONS,
 )
-from src.llm import query_openrouter
+from src.llm import query_openrouter, warn_on_misconfigured_model
 from src.rag import (
     build_rag_context,
+    invalidate_embedding_cache,
     load_documents,
     retrieve_similar_documents,
     supported_upload_extension,
@@ -60,6 +65,7 @@ def upload():
     destination.mkdir(parents=True, exist_ok=True)
     saved_path = destination / filename
     file.save(saved_path)
+    invalidate_embedding_cache()
     return jsonify({"message": f"Uploaded {filename}", "file": filename})
 
 
@@ -87,12 +93,17 @@ def chat():
 
     conversation = conversation[-MAX_CONVERSATION_HISTORY:]
 
-    reply = query_openrouter(
-        user_message,
-        context=rag_context,
-        language=language,
-        conversation=conversation,
-    )
+    try:
+        reply = query_openrouter(
+            user_message,
+            context=rag_context,
+            language=language,
+            conversation=conversation,
+        )
+    except Exception as exc:
+        logger.exception("Chat request failed")
+        user_message_text = str(exc) if DEBUG_MODE else "Unable to reach helpdesk."
+        return jsonify({"error": user_message_text}), 500
 
     return jsonify(
         {
@@ -104,4 +115,6 @@ def chat():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    warn_on_misconfigured_model(logger=logger)
     app.run(host="0.0.0.0", port=PORT, debug=DEBUG_MODE)

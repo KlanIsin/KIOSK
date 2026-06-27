@@ -1,4 +1,4 @@
-﻿import re
+import re
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -23,12 +23,47 @@ from src.config import (
 
 EMBEDDING_MODEL_INSTANCE = None
 
+# Cache for the FAISS index so we don't re-embed every document on every
+# chat request. Keyed on (sorted (path, mtime) tuples). Invalidate via
+# invalidate_embedding_cache() when the underlying files change (e.g. after
+# /api/upload saves a new doc).
+_EMBEDDING_CACHE: Optional[tuple] = None
+_EMBEDDING_CACHE_KEY: Optional[tuple] = None
+
 
 def get_embedding_model() -> SentenceTransformer:
     global EMBEDDING_MODEL_INSTANCE
     if EMBEDDING_MODEL_INSTANCE is None:
         EMBEDDING_MODEL_INSTANCE = SentenceTransformer(EMBEDDING_MODEL)
     return EMBEDDING_MODEL_INSTANCE
+
+
+def _docs_fingerprint(documents: List[Dict[str, str]]) -> tuple:
+    """Return a hashable key describing the current set of documents.
+
+    Uses (name, mtime_ns) for each loaded doc so a re-upload of the same
+    filename still invalidates the cache.
+    """
+    parts = []
+    for doc in documents:
+        doc_path = doc.get("path")
+        if doc_path:
+            try:
+                mtime = Path(doc_path).stat().st_mtime_ns
+            except OSError:
+                mtime = hash(doc["text"])
+        else:
+            # Older callers may not populate "path"; fall back to content hash.
+            mtime = hash(doc["text"])
+        parts.append((doc["name"], mtime))
+    return tuple(parts)
+
+
+def invalidate_embedding_cache() -> None:
+    """Drop the cached FAISS index. Call after uploading or deleting docs."""
+    global _EMBEDDING_CACHE, _EMBEDDING_CACHE_KEY
+    _EMBEDDING_CACHE = None
+    _EMBEDDING_CACHE_KEY = None
 
 
 def extract_text_from_pdf(path: Path) -> str:
@@ -75,7 +110,7 @@ def load_documents(directory: str = DOCS_DIR) -> List[Dict[str, str]]:
             continue
 
         if text:
-            documents.append({"name": path.name, "text": text})
+            documents.append({"name": path.name, "path": str(path), "text": text})
 
     return documents
 
@@ -119,8 +154,22 @@ def build_embedding_index(documents: List[Dict[str, str]]):
     return index, chunks
 
 
+def _get_cached_index(documents: List[Dict[str, str]]):
+    """Return (index, chunks) for the given documents, using the module-level
+    cache. Rebuilds only when the document set changes.
+    """
+    global _EMBEDDING_CACHE, _EMBEDDING_CACHE_KEY
+    key = _docs_fingerprint(documents)
+    if _EMBEDDING_CACHE is not None and _EMBEDDING_CACHE_KEY == key:
+        return _EMBEDDING_CACHE
+    result = build_embedding_index(documents)
+    _EMBEDDING_CACHE = result
+    _EMBEDDING_CACHE_KEY = key
+    return result
+
+
 def retrieve_similar_documents(query: str, documents: List[Dict[str, str]], top_k: int = MAX_DOCS) -> List[Dict[str, str]]:
-    index, chunks = build_embedding_index(documents)
+    index, chunks = _get_cached_index(documents)
     if index is None or not chunks:
         return retrieve_documents(query, documents, top_k)
 

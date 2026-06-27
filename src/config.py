@@ -1,4 +1,4 @@
-﻿import os
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -14,6 +14,7 @@ DOCS_DIR = os.getenv("DOCS_DIR", "knowledge_base")
 PORT = int(os.getenv("PORT", "5000"))
 DEBUG_MODE = os.getenv("DEBUG", "True").lower() in ("1", "true", "yes")
 ALLOWED_EXTENSIONS = {".txt", ".pdf"}
+ANTHROPIC_MAX_TOKENS = int(os.getenv("ANTHROPIC_MAX_TOKENS", "2048"))
 LANGUAGES = {"en": "English", "yue": "Cantonese"}
 DEFAULT_LANGUAGE = "en"
 SUGGESTED_QUESTIONS = {
