@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DLKP AI Assistant</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <header class="app-header">
+            <img src="hkma.png" alt="HKMA Logo" class="logo">
+            <h1 class="app-title" id="app-title">DLKP AI Assistant</h1>
+        </header>
+
+        <main class="chat-area">
+            <div class="chat-bubble bot">
+                <div class="bubble-meta">DLKP, <span id="welcome-time">--:--</span></div>
+                <div class="bubble-text" id="welcome-text">Welcome to David Li Kwok Po College! What may I help you with?</div>
+            </div>
+        </main>
+
+        <footer class="app-footer">
+            
+            <div class="quick-actions">
+                <button class="action-btn" id="btn-events" type="button">School events</button>
+                <button class="action-btn" id="btn-timetables" type="button">Timetables</button>
+                <button class="action-btn" id="btn-attendance" type="button">Attendance</button>
+                <button class="action-btn" id="btn-holidays" type="button">Holidays</button>
+            </div>
+
+            <div class="input-row">
+                <button type="button" id="lang-trigger" class="lang-btn" aria-label="Switch Language">中文</button>
+                <input type="text" id="chat-input" class="text-input" placeholder="Ask DLKP..." autocomplete="off">
+                <button type="button" id="send-trigger" class="send-btn" aria-label="Send message">Send</button>
+            </div>
+
+            <div class="mic-container">
+                <button class="mic-btn" id="mic-trigger" aria-label="Press and hold to speak" type="button">
+                    <img src="mic.png" alt="Microphone" class="mic-icon">
+                </button>
+            </div>
+            
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const timeSpan = document.getElementById('welcome-time');
+            const micBtn = document.getElementById('mic-trigger');
+            const chatInput = document.getElementById('chat-input');
+            const langBtn = document.getElementById('lang-trigger');
+            const appTitle = document.getElementById('app-title');
+            const welcomeText = document.getElementById('welcome-text');
+            const btnEvents = document.getElementById('btn-events');
+            const btnTimetables = document.getElementById('btn-timetables');
+            const btnAttendance = document.getElementById('btn-attendance');
+            const btnHolidays = document.getElementById('btn-holidays');
+            const suggestionBtns = [btnEvents, btnTimetables, btnAttendance, btnHolidays];
+            const suggestionDefaults = ['events', 'timetables', 'attendance', 'holidays'];
+            const sendBtn = document.getElementById('send-trigger');
+
+            // 1. Dynamic Local Time Generation
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            timeSpan.textContent = `${hours}:${minutes}`;
+
+            // 2. Language Matrix Configurations
+            // Backend supports: en (English), yue (Cantonese)
+            let currentLang = 'en';
+            const localeData = {
+                en: {
+                    title: "DLKP AI Assistant",
+                    welcome: "Welcome to David Li Kwok Po College! What may I help you with?",
+                    events: "School events",
+                    timetables: "Timetables",
+                    attendance: "Attendance",
+                    holidays: "Holidays",
+                    placeholder: "Ask DLKP...",
+                    listening: "Listening...",
+                    send: "Send",
+                    toggleLabel: "粵",
+                    speechLocale: "en-US"
+                },
+                yue: {
+                    title: "DLKP 智能助理",
+                    welcome: "歡迎來到香港管理專業協會李國寶中學！有甚麼我可以幫您？",
+                    events: "學校活動",
+                    timetables: "時間表",
+                    attendance: "考勤",
+                    holidays: "假期",
+                    placeholder: "詢問 DLKP...",
+                    listening: "正在聆聽...",
+                    send: "發送",
+                    toggleLabel: "EN",
+                    speechLocale: "zh-HK"
+                }
+            };
+
+            // 3. Continuous Background Speech Setup
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            let recognition = null;
+            
+            if (!SpeechRecognition) {
+                console.warn("Web Speech API is not natively supported in this browser engine.");
+                micBtn.style.opacity = "0.4";
+                micBtn.disabled = true;
+                micBtn.title = "Speech input is not supported in this browser.";
+            } else {
+                recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                recognition.lang = localeData[currentLang].speechLocale;
+
+                recognition.onresult = (event) => {
+                    if (!isHolding) return;
+
+                    let completeTranscript = '';
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal || event.results[i][0].confidence > 0) {
+                completeTranscript += event.results[i][0].transcript;
+                        }
+                    }
+                    if (completeTranscript.trim().length > 0) {
+                        chatInput.value = completeTranscript;
+                    }
+                };
+
+                recognition.onend = () => {
+                    if (hasStarted && isHolding) {
+                try { recognition.start(); } catch(e) {
+                    console.warn("Speech restart failed:", e);
+                }
+                    }
+                };
+
+                recognition.onerror = (event) => {
+                    console.warn("Speech recognition error:", event.error);
+                    if (event.error === 'not-allowed') {
+                hasStarted = false;
+                isHolding = false;
+                    }
+                };
+            }
+
+            let isHolding = false;
+            let hasStarted = false;
+
+            // Press and Hold Action Triggers
+            const startVoiceCapture = (e) => {
+                e.preventDefault();
+                if (!recognition) {
+                    return;
+                }
+                isHolding = true;
+                chatInput.placeholder = localeData[currentLang].listening;
+                
+                if (!hasStarted) {
+                    hasStarted = true;
+                    try {
+                        recognition.start();
+                    } catch (err) {
+                        console.error("Speech initialization error:", err);
+                    }
+                }
+            };
+
+            const endVoiceCapture = (e) => {
+                e.preventDefault();
+                isHolding = false;
+                hasStarted = false;
+                if (recognition) {
+                    try { recognition.stop(); } catch(e) {}
+                }
+                chatInput.placeholder = localeData[currentLang].placeholder;
+                        };
+
+            // ---- Backend chat wiring (minimal additions) ----
+            const chatArea = document.querySelector('.chat-area');
+            const escapeHtml = (unsafe) => unsafe
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+            const renderMarkdown = (md) => {
+                let h = escapeHtml(md);
+                // Fenced code blocks (```...```) — render before inline rules.
+                h = h.replace(/```([\s\S]*?)```/g, (_, code) =>
+                    `<pre><code>${code.replace(/^\n|\n$/g, '')}</code></pre>`);
+                h = h.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                h = h.replace(/\*(.*?)\*/g, '<em>$1</em>');
+                h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
+                h = h.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
+                    '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+                h = h.replace(/^######\s*(.*)$/gm, '<h6>$1</h6>');
+                h = h.replace(/^#####\s*(.*)$/gm, '<h5>$1</h5>');
+                h = h.replace(/^####\s*(.*)$/gm, '<h4>$1</h4>');
+                h = h.replace(/^###\s*(.*)$/gm, '<h3>$1</h3>');
+                h = h.replace(/^##\s*(.*)$/gm, '<h2>$1</h2>');
+                h = h.replace(/^#\s*(.*)$/gm, '<h1>$1</h1>');
+                const lines = h.split('\n');
+                const out = [];
+                let listType = null; // 'ul' | 'ol'
+                const closeList = () => {
+                    if (listType) { out.push(`</${listType}>`); listType = null; }
+                };
+                for (const line of lines) {
+                    if (/^\s*$/.test(line)) { closeList(); continue; }
+                    let m;
+                    if ((m = line.match(/^(\s*)[-*]\s+(.*)$/))) {
+                        if (listType !== 'ul') { closeList(); out.push('<ul>'); listType = 'ul'; }
+                        out.push(`<li>${m[2]}</li>`);
+                        continue;
+                    }
+                    if ((m = line.match(/^(\s*)\d+\.\s+(.*)$/))) {
+                        if (listType !== 'ol') { closeList(); out.push('<ol>'); listType = 'ol'; }
+                        out.push(`<li>${m[2]}</li>`);
+                        continue;
+                    }
+                    closeList();
+                    // Don't wrap <pre>, headings, or already-wrapped tags in <p>.
+                    if (/^<(pre|h[1-6]|ul|ol)/.test(line)) {
+                        out.push(line);
+                    } else {
+                        out.push(`<p>${line}</p>`);
+                    }
+                }
+                closeList();
+                return out.join('');
+            };
+
+            const nowHHMM = () => {
+                const d = new Date();
+                return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+            };
+            const addBubble = (role, text, opts = {}) => {
+                const bubble = document.createElement('div');
+                let className = `chat-bubble ${role}`;
+                if (opts.variant) className += ` ${opts.variant}`;
+                bubble.className = className;
+                if (opts.variant === 'sources') {
+                    // Sources footer: no meta row, just an italic one-liner.
+                    const body = document.createElement('div');
+                    body.className = 'bubble-text sources-text';
+                    body.textContent = text || '';
+                    bubble.appendChild(body);
+                } else {
+                    const meta = document.createElement('div');
+                    meta.className = 'bubble-meta';
+                    const label = role === 'user' ? 'You' : 'DLKP';
+                    meta.textContent = `${label}, ${nowHHMM()}`;
+                    const body = document.createElement('div');
+                    body.className = 'bubble-text';
+                    if (role === 'bot') {
+                        body.innerHTML = renderMarkdown(text || '');
+                    } else {
+                        body.textContent = text;
+                    }
+                    bubble.appendChild(meta);
+                    bubble.appendChild(body);
+                }
+                chatArea.appendChild(bubble);
+                chatArea.scrollTop = chatArea.scrollHeight;
+                if (opts.isStatus) {
+                    bubble.classList.add('status');
+                }
+                return bubble;
+            };
+
+            const conversationHistory = [];
+            const pushHistory = (role, content) => {
+                conversationHistory.push({ role, content });
+                if (conversationHistory.length > 10) {
+                    conversationHistory.splice(0, conversationHistory.length - 10);
+                }
+            };
+
+            const sendMessage = async () => {
+                const text = chatInput.value.trim();
+                if (!text) return;
+                if (sendBtn.disabled) return; // already sending; prevent double-submit on Enter
+                addBubble('user', text);
+                pushHistory('user', text);
+                chatInput.value = '';
+                sendBtn.disabled = true;
+                const statusBubble = addBubble('bot', 'Contacting the helpdesk...', { isStatus: true });
+                try {
+                    const resp = await fetch('/api/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                message: text,
+                language: currentLang,
+                conversation: conversationHistory,
+                        }),
+                    });
+                    let data;
+                    try {
+                        data = await resp.json();
+                    } catch (parseError) {
+                        const text = await resp.text();
+                        throw new Error(text || 'Invalid JSON response from server.');
+                    }
+                    statusBubble.remove();
+                    if (!resp.ok) {
+                        addBubble('bot', `Error: ${data.error || 'Unable to reach server.'}`);
+                    } else {
+                        addBubble('bot', data.reply || '');
+                        pushHistory('assistant', data.reply || '');
+                        const srcs = Array.isArray(data.source_documents) ? data.source_documents : [];
+                        if (srcs.length) {
+                        addBubble('bot', `Sources: ${srcs.join(', ')}`, { variant: 'sources' });
+                        }
+                    }
+                } catch (err) {
+                    statusBubble.remove();
+                    addBubble('bot', `Network error: ${err.message}`);
+                } finally {
+                    sendBtn.disabled = false;
+                }
+            };
+
+            const renderSuggestions = (items) => {
+                const ds = localeData[currentLang];
+                suggestionBtns.forEach((btn, i) => {
+                    const fallback = ds[suggestionDefaults[i]] || btn.textContent;
+                    btn.textContent = items[i] ? items[i].text : fallback;
+                });
+            };
+
+            const fetchSuggestions = async () => {
+                try {
+                    const resp = await fetch(`/api/suggestions?language=${currentLang}`);
+                    const data = await resp.json();
+                    if (resp.ok && Array.isArray(data.suggestions)) {
+                        renderSuggestions(data.suggestions);
+                    }
+                } catch (e) {
+                    console.warn('Failed to fetch suggestions', e);
+                }
+            };
+
+            sendBtn.addEventListener('click', sendMessage);
+            chatInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); sendMessage(); }
+            });
+            suggestionBtns.forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    chatInput.value = btn.textContent;
+                    sendMessage();
+                });
+            });
+
+            fetchSuggestions();
+
+            // Hot-swapping localization runtime loop
+            langBtn.addEventListener('click', () => {
+                currentLang = (currentLang === 'en') ? 'yue' : 'en';
+                const dataset = localeData[currentLang];
+
+                // Update UI elements
+                langBtn.textContent = dataset.toggleLabel;
+                appTitle.textContent = dataset.title;
+                welcomeText.textContent = dataset.welcome;
+                suggestionBtns.forEach((btn, i) => {
+                    btn.textContent = dataset[suggestionDefaults[i]] || btn.textContent;
+                });
+                sendBtn.textContent = dataset.send;
+                chatInput.placeholder = isHolding ? dataset.listening : dataset.placeholder;
+
+                // Hot-swap microphone pipeline architecture locale
+                if (recognition) {
+                recognition.lang = dataset.speechLocale;
+                    if (hasStarted) {
+                        // Soft reboot stream iteration instance to inherit configuration adjustments cleanly
+                        recognition.stop();
+                    }
+                }
+
+                // Refresh backend-driven suggestions for the new language
+                fetchSuggestions();
+            });
+
+            // Mouse Bindings
+            micBtn.addEventListener('mousedown', startVoiceCapture);
+            micBtn.addEventListener('mouseup', endVoiceCapture);
+            micBtn.addEventListener('mouseleave', endVoiceCapture);
+
+            // Touch Bindings
+            micBtn.addEventListener('touchstart', startVoiceCapture, { passive: false });
+            micBtn.addEventListener('touchend', endVoiceCapture, { passive: false });
+        });
+    </script>
+</body>
+</html>

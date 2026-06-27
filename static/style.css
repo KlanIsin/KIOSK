@@ -1,0 +1,330 @@
+/* ==========================================================================
+   1. Base Setup & Scaled Global Typography
+   ========================================================================== */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+}
+
+body, html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #1e272e;
+    font-size: 18px; 
+}
+
+/* ==========================================================================
+   2. Fullscreen App Container Layout
+   ========================================================================== */
+.app-container {
+    width: 100vw;
+    height: 100vh;
+    background-image: url('back.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* ==========================================================================
+   3. Centered Dark Liquid Glass Header with Accent Border and Drop Shadow
+   ========================================================================== */
+.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: center; 
+    padding: 22px 20px;
+    gap: 16px;
+    background: rgba(0, 0, 0, 0.25); 
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 2px solid rgba(255, 255, 255, 0.45);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+    z-index: 10;
+}
+
+.logo {
+    height: 58px;
+    width: auto;
+    object-fit: contain;
+}
+
+.app-title {
+    color: #ffffff;
+    font-size: 2.35rem; 
+    font-weight: 900;
+    -webkit-text-stroke: 1.5px #000000;
+    text-shadow: 2.5px 2.5px 0px #000000;
+    letter-spacing: 0.5px;
+}
+
+@media (max-width: 600px) {
+    .app-title { font-size: 1.75rem; }
+    .logo { height: 44px; }
+}
+
+/* ==========================================================================
+   4. Chat Window Workspace Area
+   ========================================================================== */
+.chat-area {
+    flex: 1;
+    padding: 25px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    overflow-y: auto;
+}
+
+.chat-bubble {
+    background: rgba(0, 0, 0, 0.25); 
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1.5px solid rgba(255, 255, 255, 0.42);
+    border-radius: 18px;
+    padding: 16px 22px;
+    max-width: 72%;
+    color: #ffffff;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+.chat-bubble.bot {
+    align-self: flex-start;
+    border-top-left-radius: 2px;
+}
+
+.bubble-meta {
+    font-size: 0.92rem; 
+    color: #e2e8f0;
+    margin-bottom: 7px;
+    font-weight: 600;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.bubble-text {
+    font-size: 1.15rem; 
+    line-height: 1.5;
+    font-weight: 500;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+@media (max-width: 768px) {
+    .chat-bubble { max-width: 88%; }
+}
+
+/* Markdown rendered inside .bubble-text */
+.bubble-text p { margin: 0 0 0.5em 0; }
+.bubble-text p:last-child { margin-bottom: 0; }
+.bubble-text strong { font-weight: 700; }
+.bubble-text em { font-style: italic; }
+.bubble-text code {
+    font-family: 'Consolas', 'Monaco', monospace;
+    background: rgba(0, 0, 0, 0.35);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.95em;
+}
+.bubble-text pre {
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 6px 0;
+    overflow-x: auto;
+}
+.bubble-text pre code {
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    font-size: 0.9em;
+    color: #e6f1ff;
+}
+.bubble-text h1, .bubble-text h2, .bubble-text h3,
+.bubble-text h4, .bubble-text h5, .bubble-text h6 {
+    margin: 0.4em 0 0.3em 0;
+    font-weight: 700;
+    line-height: 1.25;
+}
+.bubble-text h1 { font-size: 1.45rem; }
+.bubble-text h2 { font-size: 1.30rem; }
+.bubble-text h3 { font-size: 1.20rem; }
+.bubble-text h4 { font-size: 1.12rem; }
+.bubble-text h5 { font-size: 1.05rem; }
+.bubble-text h6 { font-size: 1.00rem; }
+.bubble-text ul, .bubble-text ol { margin: 0.3em 0 0.5em 1.2em; padding: 0; }
+.bubble-text li { margin: 0.15em 0; }
+.bubble-text a { color: #6db8ff; text-decoration: underline; }
+.bubble-text a:hover { color: #a8d4ff; }
+
+/* ==========================================================================
+   5. Dark Liquid Glass Control Panel System (Footer Area)
+   ========================================================================== */
+.app-footer {
+    padding: 20px 30px 35px 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    background: rgba(0, 0, 0, 0.25); 
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-top: 2px solid rgba(255, 255, 255, 0.45);
+    box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.25);
+    z-index: 10;
+}
+
+.quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    max-width: 900px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+@media (max-width: 600px) {
+    .quick-actions { gap: 8px; }
+    .action-btn { font-size: 0.95rem; padding: 10px 14px; }
+}
+
+.action-btn {
+    flex: 1;
+    padding: 14px 20px;
+    background: rgba(0, 0, 0, 0.1); 
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 2px solid rgba(255, 255, 255, 0.45);
+    border-radius: 50px;
+    color: #ffffff;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.action-btn:hover { background: rgba(0, 0, 0, 0.35); }
+.action-btn:active { transform: scale(0.97); }
+
+.input-row {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    max-width: 650px;
+    margin: 0 auto;
+    align-items: stretch;
+}
+
+/* Unified Dark-Tinted Liquid Glass Input Bar */
+.text-input {
+    flex: 1;
+    padding: 16px 26px;
+    background: rgba(0, 0, 0, 0.1); 
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 2px solid rgba(255, 255, 255, 0.45);
+    border-radius: 50px;
+    color: #ffffff;
+    font-size: 1.15rem;
+    font-weight: 600;
+    outline: none;
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.25);
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.text-input::placeholder {
+    color: rgba(255, 255, 255, 0.65);
+    font-weight: 500;
+}
+
+.text-input:focus, .text-input:hover {
+    border-color: rgba(255, 255, 255, 0.75);
+    background: rgba(0, 0, 0, 0.45);
+}
+
+/* Unified Dark-Tinted Liquid Glass Action Button Blocks (Shared Styling for Alignment Consistency) */
+.send-btn, .lang-btn {
+    background: rgba(0, 0, 0, 0.1); 
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 2px solid rgba(255, 255, 255, 0.45);
+    border-radius: 50px;
+    color: #ffffff;
+    padding: 0 28px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
+    transition: background 0.2s ease, transform 0.1s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+}
+
+.send-btn:hover, .lang-btn:hover { background: rgba(0, 0, 0, 0.35); }
+.send-btn:active, .lang-btn:active { transform: scale(0.96); }
+
+/* ==========================================================================
+   6. Arcade Microphone Push-to-Talk Interface Action Styles
+   ========================================================================== */
+.mic-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.mic-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    outline: none;
+    padding: 5px;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: transform 0.1s ease;
+}
+
+.mic-icon {
+    width: 86px;
+    height: auto;
+    display: block;
+    transition: filter 0.15s ease;
+}
+
+.mic-btn:active { transform: scale(0.92); }
+.mic-btn:active .mic-icon {
+    filter: hue-rotate(110deg) brightness(1.3) drop-shadow(0 0 14px rgba(255, 0, 128, 0.75));
+}
+
+/* Custom Scrollbars */
+.chat-area::-webkit-scrollbar { width: 6px; }
+.chat-area::-webkit-scrollbar-track { background: transparent; }
+.chat-area::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 10px;
+}
+/* Sources footer bubble — distinct from regular bot replies */
+.chat-bubble.sources {
+    align-self: center;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px dashed rgba(255, 255, 255, 0.45);
+    border-radius: 14px;
+    padding: 6px 14px;
+    margin: 4px 0;
+    max-width: 90%;
+    box-shadow: none;
+}
+.chat-bubble.sources .bubble-text.sources-text {
+    font-size: 0.9rem;
+    font-style: italic;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.85);
+    text-align: center;
+    line-height: 1.3;
+    text-shadow: none;
+}
