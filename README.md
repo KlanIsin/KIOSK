@@ -63,8 +63,16 @@ OPENROUTER_API_KEY=your_key_here
 
 ## Run
 
+From the project root, start the app with:
+
 ```bash
 python src/app.py
+```
+
+Or, equivalently:
+
+```bash
+python -m src.app
 ```
 
 Then open:
